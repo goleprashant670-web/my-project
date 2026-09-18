@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dms
+      POSTGRES_USER: dms
+      POSTGRES_PASSWORD: ${DMS_DB_PASSWORD:?Set DMS_DB_PASSWORD in root .env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U dms -d dms']
+      interval: 10s
+      retries: 10
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: backend/.env
+    environment:
+      DATABASE_URL: postgresql://dms:${DMS_DB_PASSWORD}@db:5432/dms
+      HOST: 0.0.0.0
+      PORT: 8080
+      PUBLIC_ORIGIN: https://${DMS_DOMAIN:?Set DMS_DOMAIN in root .env}
+      COOKIE_SECURE: 'true'
+      DATA_DIR: /app/backend/data
+    volumes:
+      - media:/app/backend/data
+    depends_on:
+      db:
+        condition: service_healthy
+  gateway:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DMS_DOMAIN: ${DMS_DOMAIN}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+    depends_on: [api]
+volumes:
+  database:
+  media:
+  certificates:
+  caddy_config:

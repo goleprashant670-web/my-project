@@ -1,0 +1,11 @@
+.env
+backend/data/
+node_modules/
+*.jks
+*.keystore
+key.properties
+build/
+.dart_tool/
+__pycache__/
+.venv/
+artifacts/

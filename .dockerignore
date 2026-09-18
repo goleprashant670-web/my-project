@@ -1,0 +1,9 @@
+**/.env
+backend/data
+**/node_modules
+**/*.jks
+**/key.properties
+flutter
+assets/media
+DMS-NEWS-Preview.html
+DMS-CONTROL-Preview.html

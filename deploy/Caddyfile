@@ -1,0 +1,7 @@
+{$DMS_DOMAIN} {
+  reverse_proxy api:8080 {
+    transport http {
+      response_header_timeout 300s
+    }
+  }
+}
