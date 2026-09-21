@@ -1,0 +1,73 @@
+name: DMS Android emulator smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [dms-android-build]
+    paths: [.github/workflows/device-smoke.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ab4d39da932d23aa1e141bf86e4e6e8e88b890da
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: DMS-Android
+          path: apks
+          run-id: 35314676135
+          github-token: ${{ github.token }}
+      - name: Prepare Android emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg acl
+          sudo setfacl -m u:$(id -un):rw /dev/kvm
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n dms_test -k 'system-images;android-35;google_apis;x86_64' --force
+      - name: Launch and inspect both apps
+        env:
+          PUBLIC_ORIGIN: http://10.0.2.2:8080
+          DATA_DIR: /tmp/dms-device-data
+        run: |
+          mkdir -p evidence
+          node backend/server.mjs > evidence/backend.log 2>&1 &
+          "$ANDROID_HOME/emulator/emulator" -avd dms_test -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > evidence/emulator.log 2>&1 &
+          adb wait-for-device
+          for i in $(seq 1 120); do
+            if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
+            sleep 2
+          done
+          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1
+          adb shell input keyevent 82
+          adb install apks/flutter-debug.apk
+          adb install apks/admin_flutter-debug.apk
+          for app in dmsnews dmscontrol; do
+            adb shell am start -W -n "com.dmsdigitalmediaservice.$app/.MainActivity"
+            sleep 15
+            adb shell pidof "com.dmsdigitalmediaservice.$app"
+            adb shell uiautomator dump /sdcard/window.xml
+            adb pull /sdcard/window.xml "evidence/$app.xml"
+            adb exec-out screencap -p > "evidence/$app.png"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          news=Path('evidence/dmsnews.xml').read_text()
+          admin=Path('evidence/dmscontrol.xml').read_text()
+          assert 'Create news' in news or 'Dashboard' in news, 'User dashboard did not load'
+          assert 'Admin login' in admin or 'Secure administration' in admin, 'Admin login did not load'
+          print('Both installed apps loaded their distinct backend interfaces on Android API 35.')
+          PY
+          adb logcat -d > evidence/logcat.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DMS-device-evidence
+          path: evidence/
+          retention-days: 14
