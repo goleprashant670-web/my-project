@@ -1,0 +1,113 @@
+name: Build DMS Android apps
+on:
+  push:
+    branches: [dms-android-build]
+    paths:
+      - 'flutter/**'
+      - 'admin_flutter/**'
+      - 'packages/**'
+      - 'backend/**'
+      - 'web/**'
+      - 'admin/**'
+      - 'assets/logo.jpeg'
+      - 'scripts/prepare_android.py'
+      - 'tests/**'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: HTTPS backend origin, without trailing path
+        required: true
+        type: string
+      signed_release:
+        description: Build signed release APK and AAB (requires signing secrets)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_ORIGIN: ${{ inputs.api_origin || 'http://10.0.2.2:8080' }}
+      RELEASE: ${{ inputs.signed_release || false }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate backend origin
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          python3 - <<'PY'
+          import os, urllib.parse, urllib.request
+          u=urllib.parse.urlparse(os.environ['API_ORIGIN'])
+          assert u.scheme=='https' and u.netloc and not u.username and not u.password and u.path in ('','/') and not u.query and not u.fragment
+          with urllib.request.urlopen(os.environ['API_ORIGIN'].rstrip('/')+'/api/health',timeout=20) as r:
+              assert r.status==200
+          PY
+      - name: Install Flutter stable
+        run: |
+          git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Prepare Android
+        run: |
+          flutter --version
+          flutter doctor -v
+          python3 scripts/prepare_android.py
+      - name: Analyze both apps
+        run: |
+          (cd flutter && flutter analyze)
+          (cd admin_flutter && flutter analyze)
+          (cd packages/dms_shell && flutter analyze)
+      - name: Backend checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          node tests/api.mjs
+          node tests/admin.mjs
+          node tests/providers.mjs
+          node tests/frontend.mjs
+      - name: Configure signing
+        if: inputs.signed_release
+        env:
+          KEYSTORE: ${{ secrets.DMS_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.DMS_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DMS_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.DMS_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE" && test -n "$STORE_PASS" && test -n "$KEY_ALIAS" && test -n "$KEY_PASS"
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/dms-release.jks"
+          chmod 600 "$RUNNER_TEMP/dms-release.jks"
+      - name: Build packages
+        env:
+          DMS_KEYSTORE: ${{ runner.temp }}/dms-release.jks
+          DMS_STORE_PASSWORD: ${{ secrets.DMS_STORE_PASSWORD }}
+          DMS_KEY_ALIAS: ${{ secrets.DMS_KEY_ALIAS }}
+          DMS_KEY_PASSWORD: ${{ secrets.DMS_KEY_PASSWORD }}
+        run: |
+          mkdir -p artifacts
+          for app in flutter admin_flutter; do
+            mode=debug
+            if [ "$RELEASE" = true ]; then mode=release; fi
+            (cd "$app" && flutter build apk --"$mode" --dart-define="API_BASE=$API_ORIGIN" --dart-define=DISTRIBUTION=play)
+            cp "$app/build/app/outputs/flutter-apk/app-$mode.apk" "artifacts/$app-$mode.apk"
+            if [ "$RELEASE" = true ]; then
+              (cd "$app" && flutter build appbundle --release --dart-define="API_BASE=$API_ORIGIN" --dart-define=DISTRIBUTION=play)
+              cp "$app/build/app/outputs/bundle/release/app-release.aab" "artifacts/$app-release.aab"
+            fi
+            cp "$app/pubspec.lock" "artifacts/$app-pubspec.lock"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DMS-Android
+          path: artifacts/
+          retention-days: 14
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/dms-release.jks"

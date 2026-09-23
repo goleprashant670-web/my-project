@@ -1,0 +1,11 @@
+name: dms_shell
+version: 0.3.0
+publish_to: none
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: 4.14.1
+  webview_flutter_android: 4.14.1
+  file_picker: 13.1.0

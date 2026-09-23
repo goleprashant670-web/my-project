@@ -1,0 +1,12 @@
+name: dms_control
+version: 0.3.0+3
+publish_to: none
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  dms_shell:
+    path: ../packages/dms_shell
+flutter:
+  uses-material-design: true

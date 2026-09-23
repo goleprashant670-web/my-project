@@ -1,0 +1,1 @@
+{"name":"dms-news-api","private":true,"version":"0.2.0","type":"module","engines":{"node":">=24"},"scripts":{"start":"node --env-file-if-exists=.env server.mjs","test":"node ../tests/api.mjs"},"optionalDependencies":{"pg":"^8.16.3"}}

@@ -1,0 +1,104 @@
+name: DMS Android emulator smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [dms-android-build]
+    paths: [.github/workflows/device-smoke.yml, scripts/android_webview_smoke.mjs]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ab4d39da932d23aa1e141bf86e4e6e8e88b890da
+      - uses: actions/checkout@v4
+        with:
+          path: harness
+          sparse-checkout: scripts/android_webview_smoke.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: DMS-Android
+          path: apks
+          run-id: 35314676135
+          github-token: ${{ github.token }}
+      - name: Prepare Android emulator
+        run: |
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/dms-avd"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/dms-android"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME" >> "$GITHUB_ENV"
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg acl
+          sudo setfacl -m u:$(id -un):rw /dev/kvm
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n dms_test -k 'system-images;android-35;google_apis;x86_64' --path "$ANDROID_AVD_HOME/dms_test.avd" --force
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -x dms_test
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+      - name: Launch and inspect both apps
+        timeout-minutes: 8
+        env:
+          PUBLIC_ORIGIN: http://10.0.2.2:8080
+          DATA_DIR: /tmp/dms-device-data
+        run: |
+          mkdir -p evidence
+          trap 'timeout 10 adb logcat -d > evidence/logcat.txt 2>&1 || true; tail -n 80 evidence/emulator.log; cat evidence/backend.log' EXIT
+          export DMS_TEST_ADMIN_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$DMS_TEST_ADMIN_PASSWORD"
+          ADMIN_EMAIL=android-ci@example.invalid ADMIN_PASSWORD="$DMS_TEST_ADMIN_PASSWORD" node backend/server.mjs --create-admin
+          node backend/server.mjs > evidence/backend.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8080/api/health > evidence/health.json; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/api/health
+          "$ANDROID_HOME/emulator/emulator" -avd dms_test -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > evidence/emulator.log 2>&1 &
+          timeout 120 adb wait-for-device
+          for i in $(seq 1 60); do
+            if [ "$(timeout 5 adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
+            sleep 2
+          done
+          test "$(timeout 5 adb shell getprop sys.boot_completed | tr -d '\r')" = 1
+          timeout 10 adb shell input keyevent 82
+          timeout 60 adb install apks/flutter-debug.apk
+          timeout 60 adb install apks/admin_flutter-debug.apk
+          for app in dmsnews dmscontrol; do
+            timeout 30 adb shell am start -W -n "com.dmsdigitalmediaservice.$app/.MainActivity"
+            sleep 15
+            timeout 10 adb shell pidof "com.dmsdigitalmediaservice.$app"
+            timeout 10 adb exec-out screencap -p > "evidence/$app.png"
+            timeout 10 adb shell rm -f /sdcard/window.xml
+            dump_status=0
+            timeout 30 adb shell uiautomator dump /sdcard/window.xml || dump_status=$?
+            echo "$dump_status" > "evidence/$app-dump-status.txt"
+            # API 35 UiAutomation can crash during teardown after writing its XML.
+            # A fresh XML and live app are required; actual WebView contents are
+            # checked through CDP below because UIAutomator omits the HTML tree.
+            if [ "$dump_status" != 0 ] && [ "$dump_status" != 137 ]; then exit "$dump_status"; fi
+            timeout 10 adb pull /sdcard/window.xml "evidence/$app.xml"
+            timeout 10 adb shell pidof "com.dmsdigitalmediaservice.$app"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for app in ('dmsnews', 'dmscontrol'):
+              root=ET.parse(Path('evidence') / (app + '.xml')).getroot()
+              assert any(n.get('class') == 'android.webkit.WebView' and
+                  n.get('package') == 'com.dmsdigitalmediaservice.' + app
+                  for n in root.iter('node')), app + ': native WebView is missing'
+          PY
+          node harness/scripts/android_webview_smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DMS-device-evidence
+          path: evidence/
+          retention-days: 14
