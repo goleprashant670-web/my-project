@@ -31,15 +31,22 @@ jobs:
           sudo setfacl -m u:$(id -un):rw /dev/kvm
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n dms_test -k 'system-images;android-35;google_apis;x86_64' --force
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - name: Launch and inspect both apps
         env:
           PUBLIC_ORIGIN: http://10.0.2.2:8080
           DATA_DIR: /tmp/dms-device-data
         run: |
           mkdir -p evidence
+          trap 'adb logcat -d > evidence/logcat.txt 2>&1 || true' EXIT
           node backend/server.mjs > evidence/backend.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8080/api/health > evidence/health.json; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/api/health
           "$ANDROID_HOME/emulator/emulator" -avd dms_test -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > evidence/emulator.log 2>&1 &
-          adb wait-for-device
+          timeout 180 adb wait-for-device
           for i in $(seq 1 120); do
             if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
             sleep 2

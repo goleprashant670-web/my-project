@@ -2,6 +2,17 @@ name: Build DMS Android apps
 on:
   push:
     branches: [dms-android-build]
+    paths:
+      - 'flutter/**'
+      - 'admin_flutter/**'
+      - 'packages/**'
+      - 'backend/**'
+      - 'web/**'
+      - 'admin/**'
+      - 'assets/dms-logo.jpeg'
+      - 'scripts/prepare_android.py'
+      - 'tests/**'
+      - '.github/workflows/android-build.yml'
   workflow_dispatch:
     inputs:
       api_origin:
