@@ -11,6 +11,9 @@ jobs:
   device:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/dms-avd
+      ANDROID_USER_HOME: ${{ runner.temp }}/dms-android
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,8 +32,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg acl
           sudo setfacl -m u:$(id -un):rw /dev/kvm
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
-          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n dms_test -k 'system-images;android-35;google_apis;x86_64' --force
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n dms_test -k 'system-images;android-35;google_apis;x86_64' --path "$ANDROID_AVD_HOME/dms_test.avd" --force
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -x dms_test
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - name: Launch and inspect both apps
         timeout-minutes: 8
