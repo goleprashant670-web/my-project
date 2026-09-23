@@ -1,6 +1,6 @@
-# API contract — development v0.1
+# API contract — development 0.3.0
 
-Prefix: `/api`. JSON request/response except file responses. Errors use `{ "error": "message" }` with HTTP status. Same-origin web client uses an HttpOnly SameSite cookie. Flutter receives a random opaque token and sends `Authorization: Bearer TOKEN`. Server stores only the SHA-256 token hash; sessions expire after seven days. These are opaque token sessions, not JWT.
+Prefix: `/api`. JSON request/response except file responses and binary uploads. This document is for developers; the apps do not expose a JSON editor/converter. Errors use `{ "error": "message" }` with HTTP status. Same-origin web clients, including the current Flutter WebView shells, use HttpOnly SameSite cookies. Other API clients may use the returned opaque token as `Authorization: Bearer TOKEN`. Server stores only the SHA-256 token hash; sessions expire after seven days. These are opaque token sessions, not JWT.
 
 | Method | Endpoint | Access / contract |
 |---|---|---|
@@ -10,12 +10,17 @@ Prefix: `/api`. JSON request/response except file responses. Errors use `{ "erro
 | POST | /auth/login | `{email,password}`; returns `{user,token}` |
 | POST | /auth/logout | Authenticated; invalidates current token |
 | POST | /auth/password | `{current,password}`; invalidates all sessions |
+| POST | /auth/otp/send | `{phone}` in international format; returns `challengeId,expiresIn`; Twilio Verify required |
+| POST | /auth/otp/check | `{challengeId,code,name?}`; verified phone user/session; no automatic email-account linking |
 | GET | /me | User, effective plan, subscription and usage |
 | GET/POST | /projects | List own drafts / create JSON project |
 | PUT/DELETE | /projects/:id | Own project only |
 | GET/POST/DELETE | /favourites[/:id] | Own records with `templateId` |
 | GET/POST/DELETE | /support[/:id] | Own support records; no outgoing messages are sent |
 | GET | /downloads | Own completed exports |
+| GET | /media | Own uploaded audio/video metadata |
+| POST | /media?name=... | Raw binary body, matching audio/video Content-Type; 64 MB max, valid media 0.1–600 seconds |
+| GET/DELETE | /media/:id | Owner only; deletion rejects media used by saved projects or active render |
 | GET | /files/:id.png or .jpg or .mp4 | Owner-authenticated binary response |
 | POST | /exports | `{image: "data:image/png;base64,...", format: "png|jpg|mp4", templateId, name, duration}` |
 | GET | /payments | Own order/payment history; amount in paise |
@@ -24,6 +29,7 @@ Prefix: `/api`. JSON request/response except file responses. Errors use `{ "erro
 | POST | /payments/webhook | Raw body signed with webhook secret; handles payment.captured idempotently |
 | POST | /ai/script | Authenticated editable text generation through adapter |
 | POST | /ai/voice | Authenticated quota-controlled voice adapter |
+| GET | /ai/voices | Authenticated Azure voice catalog; locale/gender/supported style metadata |
 | GET | /admin/analytics | Real aggregate data; admin only |
 | GET | /admin/users | Admin-only safe user fields |
 | PUT | /admin/users/:id | `{active: true|false}` |
@@ -51,7 +57,13 @@ The server uses only the trusted deployment setting `AI_ADAPTER_URL`; users cann
 
 `POST <adapter>/script`: JSON `{facts,duration,language}`. Return `{headline,script,caption?,description?}`. The script remains editable. Your adapter must constrain output to supplied facts and disclose unavailable sources.
 
-`POST <adapter>/voice`: JSON `{script,language,gender,style,speed,pitch,volume}`. Return `{audioUrl:"https://..."}` using a signed, short-lived media URL. The current web client previews this audio; attaching it to MP4 is pending.
+`POST <adapter>/voice`: JSON `{script,language,gender,style,speed,pitch,volume}`. Return `{audioUrl:"https://..."}` using a signed, short-lived media URL. The generic path previews this audio; importing that external audio into private timeline media is pending.
+
+With `AZURE_SPEECH_ENDPOINT` and `AZURE_SPEECH_KEY`, the direct Azure path takes precedence, selects a catalog voice, generates MP3 and stores it as authenticated user media. `/ai/voice` then returns `{audioUrl,mediaId,voice,style,language}`. The app applies `mediaId` as narration for MP4 composition. This is mock-tested integration code, not verified live synthesis.
+
+## Timeline export additions
+
+`POST /exports` supports `clips: [{mediaId,start,duration}]` (maximum 8 main clips), `introId,introDuration,outroId,outroDuration,narrationId,musicId,voiceSpeed,voiceVolume,musicVolume,clipVolume,ticker,tickerSpeed,tickerImage`. Durations/start are seconds; volume ranges 0–1. Media IDs must be owned by the authenticated user. Full composition including intro/outro is limited to 180 seconds. Intro/outro selection is uploaded media, not an already populated licensed library. Formats are PNG/JPG/MP4; server plan controls 720p/1080p and watermark. Existing raster frame plus basic timeline is not a full independent-layer editor.
 
 An adapter is an integration contract, not a supplied cloud AI implementation. Unsupported languages/voices must return an error. Add provider-specific safety, retries, billing controls, audio ownership and retention before production.
 

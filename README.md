@@ -1,6 +1,6 @@
 # DMS NEWS / DMS CONTROL — source update 0.3.0
 
-This is tested backend and frontend source, **not a compiled or production-ready APK/AAB**. Flutter SDK installation was unavailable here; no Android analysis, compilation, device QA or Play publication has completed. Read `docs/DEPLOYMENT-HINGLISH.md` for the deployment path and remaining release gates.
+DMS NEWS and DMS CONTROL **debug APKs have compiled successfully** in GitHub Actions, including Flutter analysis and backend CI checks. They target the emulator host backend at `http://10.0.2.2:8080`. Signed release APK/AAB, live deployment and Play publication are not complete. Both APKs also passed installation/launch and seven core Android API 35 WebView checks, including registration, draft persistence and admin-to-user price/template updates. Exact scope and evidence are recorded in `docs/VERIFICATION.md`. Read `docs/DEPLOYMENT-HINGLISH.md` for the deployment path and remaining release gates.
 
 ## What changed
 
@@ -9,7 +9,7 @@ This is tested backend and frontend source, **not a compiled or production-ready
 - Admin sessions use a separate HttpOnly cookie. A normal user cannot log into the admin app. There are no default admin credentials.
 - Published template and plan changes come from the shared backend; users press Refresh or reopen the app. No APK update is needed for catalog/pricing changes.
 - Templates support JPG/PNG backgrounds, name/category/festival, headline, format, color, tags, premium status and scheduling.
-- Separate Flutter targets use the connected interfaces through a shared WebView shell, with different Android application IDs, file picking and a save-file bridge. These native paths are uncompiled and unverified.
+- Separate Flutter targets use the connected interfaces through a shared WebView shell, with different Android application IDs, file picking and a save-file bridge. Both native targets are compiled; full upload/download and physical-device acceptance remain unverified.
 - Existing FFmpeg timeline composition supports trimmed/reordered clips, narration, music, ticker and intro/outro. Direct Azure Speech and Twilio Verify integrations exist but require credentials and live testing.
 
 ## Run locally
@@ -29,7 +29,7 @@ Tests: `node tests/api.mjs`, `node tests/admin.mjs`, `node tests/providers.mjs`,
 
 ## Boundaries
 
-- No actual APK/AAB included; no successful GitHub Actions run.
+- Verified debug build: https://github.com/goleprashant670-web/my-project/actions/runs/35314676135. No signed release AAB or production APK exists.
 - AI/OTP/payment live accounts, domain/server, release signing and Play access are not configured.
 - Play Billing / alternative-billing integration is unfinished. Default native Play builds block checkout; native Razorpay bank/UPI handoffs remain unfinished.
 - Password recovery, email verification, 2FA, actual account/data deletion, push delivery, refund/recurring reconciliation and coupon redemption are unfinished.

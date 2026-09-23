@@ -1,15 +1,15 @@
 # Requirement backlog — DMS NEWS
 
-**Update 0.3.0 (18 September 2026):** The historical matrix below is a backlog, not a completion certificate. Admin is now separate, JSON editing/import/export controls removed, form-based template/plan/festival/settings management implemented, and separate Flutter connected targets supplied but uncompiled. Timeline media composition and mock-tested OTP/Azure adapters exist. No APK/AAB, live provider verification or Play release exists. See README and VERIFICATION for current tested scope. Older matrix entries describing missing separation/forms/timeline are superseded by this update.
+**Update 23 September 2026, app 0.3.0+3:** Both separate Flutter targets now have successful analysis/debug APK builds and seven core Android API 35 WebView checks. The supplied APKs target the emulator host backend, not a live domain. Form-based administration and no JSON editor/converter remain implemented. See `VERIFICATION.md` for exact Android runtime scope. Signed release AAB, live provider verification and Play release remain pending. This matrix is a backlog, not a completion certificate.
 
 The supplied specification has 57 numbered sections. Its final “Cloud Project Syn…” line is truncated. No unseen section 58 or completed cloud-sync feature has been invented. This matrix describes actual code and verification, not a claim of complete production delivery.
 
 | No. | Requirement | Status | Delivered / remaining |
 |---:|---|---|---|
-| 1 | Project overview | Partial | Working web studio/API plus uncompiled Flutter client; full production platform incomplete. |
+| 1 | Project overview | Partial | Working web studio/API plus compiled Flutter WebView client; full production platform incomplete. |
 | 2 | Branding | Implemented in preview/source | Supplied DMS logo and original DMS layouts. Third-party reference clips excluded from published catalog. |
 | 3 | 3D DMS logo | Partial | Lightweight perspective rotation; Flutter uses supplied logo. Not a geometric 3D model or metallic conversion. |
-| 4 | Splash screen | Implemented in source | Automatic splash transition; native runtime untested. |
+| 4 | Splash screen | Implemented in source | App reaches dashboard on Android API 35 emulator; opening-animation quality and physical devices unverified. |
 | 5 | Login and registration | Partial | Email/password, logout and password change; mock-tested Twilio OTP. Live OTP, recovery, email verification and profile image pending. |
 | 6 | Main dashboard | Partial | Main studio routes and shortcuts implemented; some advanced modules pending. |
 | 7 | Create news | Partial | Headline/script/reporter/location/channel/logo/images plus video timeline; date/category editing incomplete. |
@@ -24,18 +24,18 @@ The supplied specification has 57 numbered sections. Its final “Cloud Project 
 | 16 | News ticker | Partial | Bottom scrolling ticker and speed in server video; top ticker and full styling controls pending. |
 | 17 | Lower third | Partial | Basic reporter/location band; guest/designation/custom lower-third import pending. |
 | 18 | Intro and outro | Partial | User-uploaded intro/outro concatenation supported. Curated licensed library pending. |
-| 19 | Save project | Implemented web/API | Save, reopen, duplicate and delete drafts. JSON import/export removed as requested. |
-| 20 | Export and download | Partial | Actual PNG/JPG/MP4 with audiovisual timeline and server 720p/1080p rules. Native save source uncompiled; 2K/4K pending. |
+| 19 | Save project | Implemented web/API | Save/reopen verified in Android WebView; duplicate/delete covered in API/frontend tests. JSON import/export removed as requested. |
+| 20 | Export and download | Partial | Actual PNG/JPG/MP4 with audiovisual timeline and server 720p/1080p rules. Native save source compiled but physical-device unverified; 2K/4K pending. |
 | 21 | Watermark | Implemented basic server rule | Plan-controlled rendered watermark on connected exports; offline exports watermarked. |
 | 22 | Subscriptions | Partial | Dynamic plans, duration, limits and access checks; prices unset, plans disabled, recurring billing pending. |
 | 23 | Razorpay | Source integration, untested live | Server orders, HMAC verification, captured-payment checks and webhook settlement. Credentials absent. |
 | 24 | Payment history | Implemented API/web | Own payment list, admin API report; no real transactions yet. |
 | 25 | Admin panel | Implemented subset | Separate DMS CONTROL web UI and Flutter target, shared backend, distinct admin cookie and role protection. |
 | 26 | Admin dashboard | Partial | User/subscription/revenue/download cards and catalog counts; chart/time-series suite pending. |
-| 27 | Admin template management | Implemented core forms | Normal fields, JPG/PNG background, category/format/free-premium/scheduling/activate/delete; arbitrary template package support pending. |
+| 27 | Admin template management | Implemented core forms | Normal edit/publish form and propagation verified in Android WebView. Background/scheduling/disable supported in API; arbitrary template packages pending. |
 | 28 | Admin festival management | Implemented core forms | Dedicated festival list form plus festival template/image editing; advanced campaign workflow pending. |
 | 29 | Admin user management | Partial | List/activate/disable in UI, manual subscription API; search, reset selected usage and detailed user report pending. |
-| 30 | Admin subscription management | Implemented basic metadata | Create/update multiple plans without rebuilding app; no per-template plan matrix. |
+| 30 | Admin subscription management | Implemented basic metadata | Rupee-price form and user-app update verified on emulator without rebuilding app; no per-template plan matrix. |
 | 31 | Admin payment settings | Partial | Secrets in server environment and price editing; gateway-status UI and offers pending. |
 | 32 | Coupons | Partial data API only | CRUD storage; eligibility, discount calculation and redemption limits are not implemented. |
 | 33 | Notifications | Partial data API only | Records can be stored; push transport, reminders and automated alerts pending. |
@@ -58,8 +58,8 @@ The supplied specification has 57 numbered sections. Its final “Cloud Project 
 | 50 | Admin template flow | Implemented basic flow | Separate admin normal form with design image upload and dynamic publication; full template format support pending. |
 | 51 | Admin access | Partial | CLI bootstrap, no defaults, isolated admin session/logout and audit log. Native/admin password recovery and 2FA pending. |
 | 52 | Deployment documentation | Provided | Local/cloud/backend/database/secrets/Razorpay guide; not a deployment or production certification. |
-| 53 | APK / AAB build | Blocked | Flutter/Android SDK absent. Source and commands provided; no compiled APK/AAB. |
+| 53 | APK / AAB build | Debug builds complete | Both debug APKs built in GitHub CI. Production API origin and owner signing setup required for release APK/AAB. |
 | 54 | Google Play guide | Provided | 21-step guide with current official source links; listing, billing compliance and submission not completed. |
-| 55 | Source delivery | Partial | Source/schema/API/env/build/user/admin/backup docs supplied. APK/AAB and complete production feature set absent. |
+| 55 | Source delivery | Partial | Source/schema/API/env/build/user/admin/backup docs supplied. Debug APKs supplied; signed release AAB and complete production feature set absent. |
 | 56 | Dynamic platform principle | Implemented for core metadata | Catalog, festivals, plans and settings from backend without APK rebuild; custom renderer features still require code updates. |
 | 57 | Future-ready features | Planned only | Listed future AI/avatar/anchor/transcription/teams/live/teleprompter capabilities are not implemented. |
