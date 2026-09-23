@@ -36,7 +36,7 @@ jobs:
           mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n dms_test -k 'system-images;android-35;google_apis;x86_64' --path "$ANDROID_AVD_HOME/dms_test.avd" --force
-          "$ANDROID_HOME/emulator/emulator" -list-avds | rg -x dms_test
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -x dms_test
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - name: Launch and inspect both apps
         timeout-minutes: 8
