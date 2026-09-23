@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [dms-android-build]
-    paths: [.github/workflows/device-smoke.yml]
+    paths: [.github/workflows/device-smoke.yml, scripts/android_webview_smoke.mjs]
 permissions:
   contents: read
   actions: read

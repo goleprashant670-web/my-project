@@ -18,6 +18,20 @@ function passed(name) { checks.push({ name, passed: true }); console.log('PASS: 
 function screenshot(name) {
   writeFileSync(`${evidence}/${name}.png`, execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 15000 }));
 }
+async function capture(ui, name, selector) {
+  // The DOM can update before Flutter's native compositor presents that frame.
+  // Wait for the splash and then capture the requested, scrolled-to screen.
+  await ui.wait(`(() => {
+    const splash = document.querySelector('#splash');
+    if (!splash) return true;
+    const style = getComputedStyle(splash);
+    return style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) < 0.01;
+  })()`, 'Splash did not finish');
+  if (selector) await ui.evaluate(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({block:'start'})`);
+  await ui.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))');
+  await delay(1500);
+  screenshot(name);
+}
 async function connect(app, port) {
   const pkg = `com.dmsdigitalmediaservice.${app}`;
   adb('shell', 'am', 'start', '-W', '-n', `${pkg}/.MainActivity`);
@@ -121,7 +135,7 @@ try {
   await ui.wait('document.querySelector("#main")?.innerText.includes("Android verified draft")', 'Server draft did not survive reload');
   await ui.click('#main .panel button.primary');
   await ui.wait('document.querySelector("#f-headline")?.value === "DMS emulator verification"', 'Saved headline did not reopen');
-  screenshot('dmsnews-editor');
+  await capture(ui, 'dmsnews-editor', '.editor-preview');
   passed('Editor canvas, save draft, session persistence and server project reopen');
   ui.close();
 
@@ -140,7 +154,7 @@ try {
   await ui.evaluate('document.querySelector("#dialog input[name=active]").checked = true');
   assert.equal(await ui.evaluate('document.querySelector("#dialog")?.innerText.includes("Price (₹)")'), true);
   assert.equal(await ui.evaluate('/json|converter/i.test(document.querySelector("#dialog").innerText)'), false);
-  screenshot('dmscontrol-price-form');
+  await capture(ui, 'dmscontrol-price-form', '#a-price');
   await ui.click('#dialog form button.primary');
   await ui.wait('!document.querySelector("#dialog[open]") && document.querySelector("#content")?.innerText.includes("149.5")', 'Rupee price save failed');
   passed('Normal admin rupee-price form saves without a JSON editor');
@@ -151,7 +165,7 @@ try {
   await ui.fill('#a-headline', 'Published from DMS CONTROL');
   await ui.evaluate('document.querySelector("#dialog input[name=active]").checked = true; document.querySelector("#dialog input[name=premium]").checked = false');
   assert.equal(await ui.evaluate('/json|converter/i.test(document.querySelector("#dialog").innerText)'), false);
-  screenshot('dmscontrol-template-form');
+  await capture(ui, 'dmscontrol-template-form', '#a-name');
   await ui.click('#dialog form button.primary');
   await ui.wait('!document.querySelector("#dialog[open]") && document.querySelector("#content")?.innerText.includes("Android verified template")', 'Template publish failed');
   passed('Normal admin template form publishes an edited design');
@@ -162,10 +176,12 @@ try {
   await ui.wait('document.querySelector("#toast")?.textContent.includes("Latest templates and prices loaded")', 'Catalog refresh failed');
   await ui.click('.nav button[onclick="go(\'subscription\')"]');
   await ui.wait('document.querySelector(".plans")?.innerText.includes("₹149.5")', 'Admin price did not reach user app');
-  screenshot('dmsnews-updated-price');
+  await ui.evaluate('document.querySelector(".plan button[data-id=monthly]").closest(".plan").scrollIntoView({block:"start"})');
+  await capture(ui, 'dmsnews-updated-price');
   await ui.click('.nav button[onclick="go(\'templates\')"]');
   await ui.wait('document.querySelector("#cards")?.innerText.includes("Android verified template")', 'Admin template did not reach user app');
-  screenshot('dmsnews-updated-template');
+  await ui.evaluate('document.querySelector("#cards button.primary[data-template=news-0]").closest(".template").scrollIntoView({block:"start"})');
+  await capture(ui, 'dmsnews-updated-template');
   await ui.click('#cards button.primary[data-template="news-0"]');
   await ui.wait('document.querySelector("#f-headline")?.value === "Published from DMS CONTROL"', 'Published template did not apply to editor');
   passed('Admin price and template update reach DMS NEWS without a new APK');
