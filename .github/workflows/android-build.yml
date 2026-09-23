@@ -9,7 +9,7 @@ on:
       - 'backend/**'
       - 'web/**'
       - 'admin/**'
-      - 'assets/dms-logo.jpeg'
+      - 'assets/logo.jpeg'
       - 'scripts/prepare_android.py'
       - 'tests/**'
       - '.github/workflows/android-build.yml'
